@@ -138,10 +138,11 @@ async function loadStores() {
   storeList.innerHTML = stores.map((store) => {
     const systemPublicUrl = buildStoreSystemPublicUrl(store);
     const systemAdminUrl = buildStoreSystemAdminUrl(store);
+    const isBlocked = store.isBlocked;
     return `
       <article class="admin-item">
         <div class="master-meta">
-          <h3>${store.name}</h3>
+          <h3>${store.name}${isBlocked ? ' <span style="background: #f8d7da; color: #721c24; padding: 2px 8px; border-radius: 3px; font-size: 12px;">BLOQUEADA</span>' : ''}</h3>
           <p>Slug: ${store.slug}</p>
           <p>Admin: ${store.adminUsername || '-'}</p>
           <p>Mensalidade: <strong>${formatCurrency(store.monthlyFee)}</strong></p>
@@ -155,6 +156,9 @@ async function loadStores() {
         <div class="admin-item-actions">
           <button class="btn-edit" type="button" data-edit-billing="${store.slug}">Editar mensalidade</button>
           <button class="btn-edit" type="button" data-edit-public-base-url="${store.slug}">Editar domínio</button>
+          <button class="btn-edit" type="button" data-toggle-block="${store.slug}" style="background: ${isBlocked ? '#d4edda' : '#fff3cd'};">
+            ${isBlocked ? '✓ Desbloquear' : '🔒 Bloquear'}
+          </button>
           <button class="btn-delete" type="button" data-delete-store="${store.slug}">Apagar loja</button>
         </div>
       </article>
@@ -257,24 +261,53 @@ async function loadStores() {
     });
   });
 
+  storeList.querySelectorAll('[data-toggle-block]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const currentStore = stores.find((item) => item.slug === btn.dataset.toggleBlock);
+      if (!currentStore) return;
+
+      const isCurrentlyBlocked = currentStore.isBlocked;
+      const newBlockedState = !isCurrentlyBlocked;
+      const action = newBlockedState ? 'bloquear' : 'desbloquear';
+      const confirmMsg = `Tem certeza que quer ${action} a loja "${currentStore.name}"?`;
+
+      if (!window.confirm(confirmMsg)) return;
+
+      const res = await fetch(`${API_BASE}/api/master/stores/${currentStore.slug}/block`, {
+        method: 'PUT',
+        headers: {
+          ...authHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ blocked: newBlockedState }),
+      });
+
+      if (res.status === 401) {
+        setToken('');
+        showPanel(false);
+        setMessage(loginMessage, 'Sessão master expirada. Faça login novamente.', true);
+        return;
+      }
+
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage(storeMessage, data.error || `Falha ao ${action} loja.`, true);
+        return;
+      }
+
+      setMessage(storeMessage, data.message);
+      loadStores();
+      loadBillingReport();
+    });
+  });
+
   storeList.querySelectorAll('[data-delete-store]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const currentStore = stores.find((item) => item.slug === btn.dataset.deleteStore);
       if (!currentStore) return;
 
-      const shouldDelete = window.confirm(`Deseja apagar a loja \"${currentStore.name}\"? Esta ação não pode ser desfeita.`);
+      const shouldDelete = window.confirm(`Deseja apagar a loja "${currentStore.name}"? Esta ação não pode ser desfeita.`);
       if (!shouldDelete) return;
-
-      const confirmationSlug = window.prompt(
-        `Para confirmar, digite o slug da loja (${currentStore.slug}):`,
-        ''
-      );
-      if (confirmationSlug === null) return;
-
-      if (safeSlug(confirmationSlug) !== currentStore.slug) {
-        setMessage(storeMessage, 'Confirmação inválida. A loja não foi apagada.', true);
-        return;
-      }
 
       const res = await fetch(`${API_BASE}/api/master/stores/${currentStore.slug}`, {
         method: 'DELETE',

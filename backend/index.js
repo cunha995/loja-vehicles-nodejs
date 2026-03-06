@@ -525,6 +525,18 @@ function evaluateStoreBillingStatus(store) {
     };
   }
 
+  // Verificar bloqueio manual primeiro
+  if (store.isBlocked) {
+    return {
+      hasBillingControl: true,
+      isBlocked: true,
+      showWarning: false,
+      daysUntilDue: null,
+      dueDate: '',
+      message: 'Esta loja foi bloqueada temporariamente. Entre em contato com o administrador do sistema para informações.',
+    };
+  }
+
   const safeDueDate = normalizeDateValue(store.billingDueDate);
   if (!safeDueDate) {
     return {
@@ -1084,6 +1096,41 @@ app.post('/api/master/stores', requireMaster, (req, res) => {
     store,
     publicUrl: `/loja/${safeSlug}`,
     adminUrl: `/admin/${safeSlug}`,
+  });
+});
+
+app.put('/api/master/stores/:slug/block', requireMaster, (req, res) => {
+  const safeSlug = slugifyStore(req.params.slug);
+  if (!safeSlug) return res.status(400).json({ error: 'Slug inválido' });
+
+  if (safeSlug === 'je-automoveis') {
+    return res.status(400).json({ error: 'A loja principal do sistema não pode ser bloqueada.' });
+  }
+
+  const stores = readStores();
+  const storeIndex = stores.findIndex((item) => item.slug === safeSlug);
+  if (storeIndex < 0) {
+    return res.status(404).json({ error: 'Loja não encontrada' });
+  }
+
+  const blocked = req.body?.blocked;
+  stores[storeIndex].isBlocked = blocked ? true : false;
+  writeStores(stores);
+
+  // Se desbloquear, invalidar as sessões bloqueadas
+  if (!blocked) {
+    for (const [token, session] of adminSessions.entries()) {
+      if (session?.storeSlug === safeSlug) {
+        adminSessions.delete(token);
+      }
+    }
+  }
+
+  const action = blocked ? 'bloqueada' : 'desbloqueada';
+  return res.json({
+    ok: true,
+    store: stores[storeIndex],
+    message: `Loja ${stores[storeIndex]?.name || safeSlug} ${action} com sucesso.`,
   });
 });
 
