@@ -179,6 +179,7 @@ async function loadStores() {
         <div class="admin-item-actions">
           <button class="btn-edit" type="button" data-edit-billing="${store.slug}">Editar mensalidade</button>
           <button class="btn-edit" type="button" data-edit-public-base-url="${store.slug}">Editar domínio</button>
+          <button class="btn-edit" type="button" data-reset-password="${store.slug}">Trocar senha</button>
           <button class="btn-edit" type="button" data-toggle-block="${store.slug}" style="background: ${isBlocked ? '#d4edda' : '#fff3cd'};">
             ${isBlocked ? '✓ Desbloquear' : '🔒 Bloquear'}
           </button>
@@ -280,6 +281,60 @@ async function loadStores() {
       }
 
       setMessage(storeMessage, `Domínio da loja ${currentStore.name} atualizado com sucesso.`);
+      loadStores();
+    });
+  });
+
+  storeList.querySelectorAll('[data-reset-password]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const currentStore = stores.find((item) => item.slug === btn.dataset.resetPassword);
+      if (!currentStore) return;
+
+      const newPasswordInput = window.prompt(
+        `Nova senha do admin para \"${currentStore.name}\" (mínimo 6 caracteres):`,
+        ''
+      );
+      if (newPasswordInput === null) return;
+
+      const safeNewPassword = String(newPasswordInput || '').trim();
+      if (safeNewPassword.length < 6) {
+        setMessage(storeMessage, 'A nova senha deve ter pelo menos 6 caracteres.', true);
+        return;
+      }
+
+      const confirmPasswordInput = window.prompt('Confirme a nova senha:', '');
+      if (confirmPasswordInput === null) return;
+
+      if (String(confirmPasswordInput || '').trim() !== safeNewPassword) {
+        setMessage(storeMessage, 'Confirmação de senha não confere.', true);
+        return;
+      }
+
+      const res = await fetch(`${API_BASE}/api/master/stores/${currentStore.slug}/password`, {
+        method: 'PUT',
+        headers: {
+          ...authHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          newPassword: safeNewPassword,
+        }),
+      });
+
+      if (res.status === 401) {
+        setToken('');
+        showPanel(false);
+        setMessage(loginMessage, 'Sessão master expirada. Faça login novamente.', true);
+        return;
+      }
+
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage(storeMessage, data.error || 'Falha ao trocar senha da loja.', true);
+        return;
+      }
+
+      setMessage(storeMessage, data.message || `Senha da loja ${currentStore.name} atualizada com sucesso.`);
       loadStores();
     });
   });

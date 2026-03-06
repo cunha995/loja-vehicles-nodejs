@@ -1284,6 +1284,48 @@ app.put('/api/master/stores/:slug/billing', requireMaster, (req, res) => {
   return res.json({ ok: true, store: stores[storeIndex] });
 });
 
+app.put('/api/master/stores/:slug/password', requireMaster, (req, res) => {
+  const safeSlug = slugifyStore(req.params.slug);
+  if (!safeSlug) return res.status(400).json({ error: 'Slug inválido' });
+
+  const safeNewPassword = String(req.body?.newPassword || '').trim();
+  if (!safeNewPassword) {
+    return res.status(400).json({ error: 'Informe a nova senha.' });
+  }
+
+  if (safeNewPassword.length < 6) {
+    return res.status(400).json({ error: 'A nova senha deve ter pelo menos 6 caracteres.' });
+  }
+
+  const stores = readStores();
+  const storeIndex = stores.findIndex((item) => item.slug === safeSlug);
+  if (storeIndex < 0) {
+    return res.status(404).json({ error: 'Loja não encontrada' });
+  }
+
+  const currentStore = ensureStoreDefaults(stores[storeIndex]);
+  if (safeNewPassword === String(currentStore.adminPassword || '').trim()) {
+    return res.status(400).json({ error: 'A nova senha deve ser diferente da senha atual.' });
+  }
+
+  stores[storeIndex] = {
+    ...stores[storeIndex],
+    adminPassword: safeNewPassword,
+  };
+  writeStores(stores);
+
+  for (const [token, session] of adminSessions.entries()) {
+    if (session?.storeSlug === safeSlug) {
+      adminSessions.delete(token);
+    }
+  }
+
+  return res.json({
+    ok: true,
+    message: `Senha do admin da loja ${stores[storeIndex]?.name || safeSlug} atualizada com sucesso.`,
+  });
+});
+
 app.post('/api/admin/login', (req, res) => {
   const { username, password, storeSlug } = req.body || {};
   let billingStatus = null;
