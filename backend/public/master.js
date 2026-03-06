@@ -29,6 +29,11 @@ function authHeaders() {
 function showPanel(isLoggedIn) {
   loginSection.classList.toggle('hidden', isLoggedIn);
   panelSection.classList.toggle('hidden', !isLoggedIn);
+  if (isLoggedIn) {
+    startBillingReportRefresh();
+  } else {
+    stopBillingReportRefresh();
+  }
 }
 
 function setupLoginPasswordToggle() {
@@ -48,9 +53,27 @@ function clearAllAuthData() {
   localStorage.removeItem('je_master_token');
   localStorage.removeItem('je_admin_token');
   setMessage(loginMessage, 'Cache de autenticação limpo com sucesso.');
+  stopBillingReportRefresh();
   setTimeout(() => {
     window.location.reload();
   }, 1000);
+}
+
+let billingReportRefreshInterval = null;
+
+function startBillingReportRefresh() {
+  // Atualiza a cada 5 segundos
+  if (billingReportRefreshInterval) clearInterval(billingReportRefreshInterval);
+  billingReportRefreshInterval = setInterval(() => {
+    loadBillingReport();
+  }, 5000);
+}
+
+function stopBillingReportRefresh() {
+  if (billingReportRefreshInterval) {
+    clearInterval(billingReportRefreshInterval);
+    billingReportRefreshInterval = null;
+  }
 }
 
 function setMessage(target, message, isError = false) {
