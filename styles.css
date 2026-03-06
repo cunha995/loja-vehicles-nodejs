@@ -111,6 +111,23 @@ html,body{height:100%;margin:0;font-family:Inter,system-ui,Arial,Helvetica,sans-
 .contact-form input,.contact-form textarea{width:100%;padding:8px;border:1px solid #ccc;border-radius:6px}
 .site-footer{padding:18px 0;background:#fff;border-top:1px solid #eee;text-align:center;margin-top:16px}
 
+.vehicle-interest-seller-cards{gap:10px;padding:10px}
+.seller-interest-card{display:flex;gap:12px;align-items:flex-start;background:#f9f9f9;border:1px solid #e3e3e3;border-radius:8px;padding:10px;transition:all .2s ease}
+.seller-interest-card:hover{background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.seller-interest-image{width:60px;height:60px;border-radius:8px;object-fit:cover;flex-shrink:0;background:#efefef}
+.seller-interest-info{flex:1;display:flex;flex-direction:column;gap:4px}
+.seller-interest-name{margin:0;font-size:.95rem;font-weight:700;color:#222}
+.seller-interest-role{margin:0;font-size:.78rem;color:#666;font-weight:500}
+.seller-interest-status{margin:0;font-size:.75rem;color:#267529;display:flex;align-items:center;gap:4px}
+.status-dot{width:6px;height:6px;border-radius:50%;background:#267529}
+.seller-interest-bio{margin:0;font-size:.8rem;color:#555;line-height:1.3}
+.seller-interest-contacts{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.contact-link{display:inline-flex;align-items:center;font-size:.8rem;text-decoration:none;font-weight:600;border-radius:6px;padding:6px 8px;transition:all .2s ease}
+.phone-link{color:#0066cc;background:#e6f0ff}
+.phone-link:hover{background:#cce0ff}
+.whatsapp-link{color:#fff;background:#25d366}
+.whatsapp-link:hover{background:#20ba5a}
+
 @media (max-width:800px){
   .top-banner{height:190px}
   .contact-section{grid-template-columns:1fr}
