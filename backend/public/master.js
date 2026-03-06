@@ -428,9 +428,9 @@ async function loadBillingReport() {
   const data = await res.json();
   const stores = Array.isArray(data.stores) ? data.stores : [];
 
-  // Filtrar lojas que têm mensalidade (excluir loja padrão ou lojas sem configuração)
+  // Filtrar lojas que têm mensalidade
   const billingStores = stores.filter(
-    (s) => s.slug !== 'je-automoveis' && s.monthlyFee && s.monthlyFee > 0
+    (s) => s.monthlyFee && s.monthlyFee > 0
   );
 
   if (!billingStores.length) {

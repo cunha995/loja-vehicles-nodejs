@@ -977,6 +977,82 @@ app.get('/api/site-settings', (_req, res) => {
   res.json({ ok: true, settings });
 });
 
+function resolvePublicStore(req) {
+  const hostStore = findStoreByHostname(req.hostname);
+  if (hostStore) return hostStore;
+  const stores = readStores();
+  return stores.length ? stores[0] : null;
+}
+
+app.get('/api/public/current/vehicles', (req, res) => {
+  const store = resolvePublicStore(req);
+  if (!store) return res.status(404).json({ error: 'Nenhuma loja disponível' });
+
+  const slug = slugifyStore(store.slug);
+  if (!slug) return res.status(404).json({ error: 'Loja inválida' });
+
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+
+  const vehicles = readStoreVehicles(slug).map((vehicle) => {
+    const normalized = normalizeVehicleMedia(vehicle);
+    return {
+      ...normalized,
+      sold: normalized.sold === true || /vendid/i.test(String(normalized.status || '')),
+    };
+  });
+
+  return res.json({ ok: true, vehicles, store });
+});
+
+app.get('/api/public/current/sellers', (req, res) => {
+  const store = resolvePublicStore(req);
+  if (!store) return res.status(404).json({ error: 'Nenhuma loja disponível' });
+
+  const slug = slugifyStore(store.slug);
+  if (!slug) return res.status(404).json({ error: 'Loja inválida' });
+
+  const sellers = readStoreSellers(slug);
+  return res.json({ ok: true, sellers, store });
+});
+
+app.get('/api/public/current/banners', (req, res) => {
+  const store = resolvePublicStore(req);
+  if (!store) return res.status(404).json({ error: 'Nenhuma loja disponível' });
+
+  const slug = slugifyStore(store.slug);
+  if (!slug) return res.status(404).json({ error: 'Loja inválida' });
+
+  const banners = readStoreBanners(slug)
+    .filter((banner) => banner.isActive !== false)
+    .sort((a, b) => Number(a.order || 0) - Number(b.order || 0));
+
+  return res.json({ ok: true, banners, store });
+});
+
+app.get('/api/public/current/site-settings', (req, res) => {
+  const store = resolvePublicStore(req);
+  if (!store) return res.status(404).json({ error: 'Nenhuma loja disponível' });
+
+  const slug = slugifyStore(store.slug);
+  if (!slug) return res.status(404).json({ error: 'Loja inválida' });
+
+  const settings = readStoreSettings(slug);
+  return res.json({ ok: true, settings, store });
+});
+
+app.get('/api/public/current/wall', (req, res) => {
+  const store = resolvePublicStore(req);
+  if (!store) return res.status(404).json({ error: 'Nenhuma loja disponível' });
+
+  const slug = slugifyStore(store.slug);
+  if (!slug) return res.status(404).json({ error: 'Loja inválida' });
+
+  const wall = readStoreWall(slug).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  return res.json({ ok: true, wall, store });
+});
+
 app.get('/api/public/:slug/vehicles', (req, res) => {
   const slug = slugifyStore(req.params.slug);
   if (!slug) return res.status(400).json({ error: 'Slug inválido' });
@@ -1160,10 +1236,6 @@ app.put('/api/master/stores/:slug/block', requireMaster, (req, res) => {
   const safeSlug = slugifyStore(req.params.slug);
   if (!safeSlug) return res.status(400).json({ error: 'Slug inválido' });
 
-  if (safeSlug === 'je-automoveis') {
-    return res.status(400).json({ error: 'A loja principal do sistema não pode ser bloqueada.' });
-  }
-
   const stores = readStores();
   const storeIndex = stores.findIndex((item) => item.slug === safeSlug);
   if (storeIndex < 0) {
@@ -1194,10 +1266,6 @@ app.put('/api/master/stores/:slug/block', requireMaster, (req, res) => {
 app.delete('/api/master/stores/:slug', requireMaster, (req, res) => {
   const safeSlug = slugifyStore(req.params.slug);
   if (!safeSlug) return res.status(400).json({ error: 'Slug inválido' });
-
-  if (safeSlug === 'je-automoveis') {
-    return res.status(400).json({ error: 'A loja principal do sistema não pode ser apagada.' });
-  }
 
   const stores = readStores();
   const storeIndex = stores.findIndex((item) => item.slug === safeSlug);

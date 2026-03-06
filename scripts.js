@@ -100,7 +100,9 @@ function buildApiUrl(resource) {
       ? `${BACKEND_BASE_URL}/api/public/${STORE_SLUG}/${resource}`
       : `/api/public/${STORE_SLUG}/${resource}`;
   }
-  return BACKEND_BASE_URL ? `${BACKEND_BASE_URL}/api/${resource}` : `/api/${resource}`;
+  return BACKEND_BASE_URL
+    ? `${BACKEND_BASE_URL}/api/public/current/${resource}`
+    : `/api/public/current/${resource}`;
 }
 
 function applyStoreBrand(store) {
