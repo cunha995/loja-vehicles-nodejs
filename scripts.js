@@ -632,6 +632,11 @@ document.addEventListener('DOMContentLoaded', function(){
   const form = document.getElementById('contactForm');
   if(!form) return;
   form.addEventListener('submit', async function(e){
+    const useNetlifyNativeForm = form.hasAttribute('data-netlify') && !BACKEND_BASE_URL;
+    if (useNetlifyNativeForm) {
+      return;
+    }
+
     e.preventDefault();
     const fd = new FormData(form);
     const payload = {

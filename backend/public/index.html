@@ -80,7 +80,9 @@
 
     <section id="contato" class="section alt container contact-section">
       <h2>Contato</h2>
-      <form id="contactForm" class="contact-form">
+      <form id="contactForm" class="contact-form" name="contact" method="POST" data-netlify="true" netlify-honeypot="bot-field" action="/">
+        <input type="hidden" name="form-name" value="contact">
+        <label style="display:none;">Não preencher<input name="bot-field"></label>
         <label>Nome<input type="text" name="name" required></label>
         <label>Email<input type="email" name="email" required></label>
         <label>Telefone<input type="tel" name="phone"></label>
