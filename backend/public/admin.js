@@ -75,6 +75,15 @@ function setupLoginPasswordToggle() {
   applyToggle();
 }
 
+function clearAllAuthData() {
+  localStorage.removeItem('je_master_token');
+  localStorage.removeItem('je_admin_token');
+  setMessage(loginMessage, 'Cache de autenticação limpo com sucesso.');
+  setTimeout(() => {
+    window.location.reload();
+  }, 1000);
+}
+
 function applyStoreContext() {
   if (!STORE_SLUG) return;
 
@@ -793,6 +802,13 @@ logoutBtn.addEventListener('click', async () => {
   setBillingNotice('');
   showPanel(false);
 });
+
+const clearCacheBtn = document.getElementById('clearCacheBtn');
+if (clearCacheBtn) {
+  clearCacheBtn.addEventListener('click', () => {
+    clearAllAuthData();
+  });
+}
 
 cancelVehicleEditBtn.addEventListener('click', () => {
   clearVehicleForm();

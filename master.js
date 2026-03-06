@@ -44,6 +44,15 @@ function setupLoginPasswordToggle() {
   applyToggle();
 }
 
+function clearAllAuthData() {
+  localStorage.removeItem('je_master_token');
+  localStorage.removeItem('je_admin_token');
+  setMessage(loginMessage, 'Cache de autenticação limpo com sucesso.');
+  setTimeout(() => {
+    window.location.reload();
+  }, 1000);
+}
+
 function setMessage(target, message, isError = false) {
   target.textContent = message;
   target.style.color = isError ? '#b31818' : '#267529';
@@ -382,6 +391,13 @@ logoutBtn.addEventListener('click', async () => {
   setToken('');
   showPanel(false);
 });
+
+const clearCacheBtn = document.getElementById('clearCacheBtn');
+if (clearCacheBtn) {
+  clearCacheBtn.addEventListener('click', () => {
+    clearAllAuthData();
+  });
+}
 
 (function init() {
   setupLoginPasswordToggle();

@@ -69,7 +69,10 @@
       <section id="sec-veiculos" class="admin-card">
         <div class="admin-head">
           <h2>Cadastro de veículos</h2>
-          <button id="logoutBtn" class="btn-secondary" type="button">Sair</button>
+          <div style="display: flex; gap: 10px;">
+            <button id="logoutBtn" class="btn-secondary" type="button">Sair</button>
+            <button id="clearCacheBtn" class="btn-secondary" type="button" title="Remove todos os tokens e logins salvos">Limpar Cache</button>
+          </div>
         </div>
 
         <form id="vehicleForm" class="admin-form grid-2" enctype="multipart/form-data">
