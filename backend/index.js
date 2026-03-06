@@ -48,6 +48,60 @@ const hasCloudinaryConfig =
 
 const PORT = process.env.PORT || 3000;
 
+/**
+ * ==========================================
+ * POLÍTICA DE BACKWARD COMPATIBILITY
+ * ==========================================
+ * 
+ * PRINCÍPIO FUNDAMENTAL: Alterações no sistema NUNCA removem ou modificam dados
+ * de lojas ja existentes. Apenas adicionam novos campos com valores padrão.
+ * 
+ * REGRAS:
+ * 1. Ao modificar uma loja (PUT), SEMPRE use spread operator: { ...store, newField: value }
+ * 2. Novos campos só são adicionados a lojas NOVAS, nunca a antigas
+ * 3. Ao LER dados de loja antiga, use função ensureStoreDefaults() para adicionar
+ *    campos faltantes sem modificar os dados salvos
+ * 4. Nunca remova campos de lojas existentes
+ * 5. Se um campo mudar de tipo/formato, suporte ambos os formatos antigos e novos
+ * 
+ * EXEMPLO:
+ * ❌ ERRADO:  const store = { name, slug, newField: value };
+ * ✅ CERTO:   const store = { ...existingStore, newField: value };
+ */
+
+/**
+ * Garante que uma loja tenha todos os campos obrigatórios,
+ * sem modificar dados ja salvos. Apenas adiciona campos faltantes.
+ */
+function ensureStoreDefaults(store) {
+  if (!store) return null;
+  
+  // Retorna obj com spread de store + valores padrão apenas se faltarem
+  return {
+    ...store,
+    // Campos básicos (sempre devem existir)
+    id: store.id || crypto.randomUUID(),
+    name: store.name || 'Sem nome',
+    slug: store.slug || 'sem-slug',
+    adminUsername: store.adminUsername || 'admin',
+    adminPassword: store.adminPassword || 'Loja2026',
+    createdAt: store.createdAt || new Date().toISOString(),
+    
+    // Campos de faturamento (podem não existir em lojas antigas)
+    monthlyFee: store.monthlyFee || 0,
+    billingDueDate: store.billingDueDate || null,
+    billingNotes: store.billingNotes || '',
+    billingSupportWhatsapp: store.billingSupportWhatsapp || 'wa.me/44998840934',
+    billingUpdatedAt: store.billingUpdatedAt || null,
+    
+    // Campos de domínio (podem não existir em lojas antigas)
+    publicBaseUrl: store.publicBaseUrl || '',
+    
+    // Campos de bloqueio (podem não existir em lojas antigas)
+    isBlocked: store.isBlocked || false,
+  };
+}
+
 function ensureStorage() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
   if (!fs.existsSync(STORES_DIR)) fs.mkdirSync(STORES_DIR, { recursive: true });
@@ -822,7 +876,8 @@ function requireAdmin(req, res, next) {
       return res.status(401).json({ error: 'Loja não encontrada para esta sessão' });
     }
 
-    const billing = evaluateStoreBillingStatus(store);
+    const storeWithDefaults = ensureStoreDefaults(store);
+    const billing = evaluateStoreBillingStatus(storeWithDefaults);
     if (billing.isBlocked) {
       adminSessions.delete(token);
       return res.status(403).json({
@@ -1007,7 +1062,9 @@ app.post('/api/master/logout', requireMaster, (req, res) => {
 });
 
 app.get('/api/master/stores', requireMaster, (_req, res) => {
-  const stores = readStores().sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  const stores = readStores()
+    .map(ensureStoreDefaults)
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   return res.json({ ok: true, stores });
 });
 
@@ -1237,13 +1294,14 @@ app.post('/api/admin/login', (req, res) => {
     const store = readStores().find((item) => item.slug === safeSlug);
     if (!store) return res.status(401).json({ error: 'Loja não encontrada para este login' });
 
-    const expectedUser = store.adminUsername || `admin-${safeSlug}`;
-    const expectedPass = store.adminPassword || 'Loja2026';
+    const storeWithDefaults = ensureStoreDefaults(store);
+    const expectedUser = storeWithDefaults.adminUsername;
+    const expectedPass = storeWithDefaults.adminPassword;
     if (username !== expectedUser || password !== expectedPass) {
       return res.status(401).json({ error: 'Credenciais da loja inválidas' });
     }
 
-    billingStatus = evaluateStoreBillingStatus(store);
+    billingStatus = evaluateStoreBillingStatus(storeWithDefaults);
     if (billingStatus.isBlocked) {
       return res.status(403).json({
         code: 'BILLING_BLOCKED',
@@ -1291,7 +1349,8 @@ app.get('/api/admin/billing-status', requireAdmin, (req, res) => {
   const store = readStores().find((item) => item.slug === storeSlug);
   if (!store) return res.status(404).json({ error: 'Loja não encontrada' });
 
-  return res.json({ ok: true, billing: evaluateStoreBillingStatus(store) });
+  const storeWithDefaults = ensureStoreDefaults(store);
+  return res.json({ ok: true, billing: evaluateStoreBillingStatus(storeWithDefaults) });
 });
 
 app.post('/api/admin/logout', requireAdmin, (req, res) => {
