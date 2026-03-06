@@ -213,6 +213,7 @@ async function loadStores() {
 
       setMessage(storeMessage, `Mensalidade da loja ${currentStore.name} atualizada com sucesso.`);
       loadStores();
+      loadBillingReport();
     });
   });
 
@@ -295,8 +296,124 @@ async function loadStores() {
 
       setMessage(storeMessage, data.message || `Loja ${currentStore.name} apagada com sucesso.`);
       loadStores();
+      loadBillingReport();
     });
   });
+}
+
+async function loadBillingReport() {
+  const billingReport = document.getElementById('billingReport');
+  if (!billingReport) return;
+
+  const res = await fetch(`${API_BASE}/api/master/stores`, {
+    headers: authHeaders(),
+  });
+
+  if (!res.ok) {
+    billingReport.innerHTML = '<p>Erro ao carregar dados de faturamento.</p>';
+    return;
+  }
+
+  const data = await res.json();
+  const stores = Array.isArray(data.stores) ? data.stores : [];
+
+  // Filtrar lojas que têm mensalidade (excluir loja padrão ou lojas sem configuração)
+  const billingStores = stores.filter(
+    (s) => s.slug !== 'je-automoveis' && s.monthlyFee && s.monthlyFee > 0
+  );
+
+  if (!billingStores.length) {
+    billingReport.innerHTML = '<p>Nenhuma loja com faturamento ativo.</p>';
+    return;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  let totalMonthly = 0;
+  const reportRows = billingStores.map((store) => {
+    const dueDate = store.billingDueDate
+      ? new Date(`${store.billingDueDate}T00:00:00`)
+      : null;
+    
+    const monthlyFee = Math.round(Number(store.monthlyFee) || 0);
+    totalMonthly += monthlyFee;
+
+    let statusClass = '';
+    let statusText = '';
+    
+    if (dueDate) {
+      if (dueDate < today) {
+        statusClass = 'overdue';
+        const daysOverdue = Math.floor((today - dueDate) / (1000 * 60 * 60 * 24));
+        statusText = `Atrasado há ${daysOverdue} dia${daysOverdue !== 1 ? 's' : ''}`;
+      } else {
+        const daysToVencimento = Math.floor((dueDate - today) / (1000 * 60 * 60 * 24));
+        const monthsToVencimento = Math.floor(daysToVencimento / 30);
+        if (daysToVencimento <= 7) {
+          statusClass = 'warning';
+          statusText = `Vence em ${daysToVencimento} dia${daysToVencimento !== 1 ? 's' : ''}`;
+        } else if (monthsToVencimento <= 0) {
+          statusClass = 'warning';
+          statusText = `Vence em ${daysToVencimento} dias`;
+        } else {
+          statusClass = 'active';
+          statusText = `Em dia (${monthsToVencimento} mês${monthsToVencimento !== 1 ? 'es' : ''})`;
+        }
+      }
+    } else {
+      statusClass = 'unknown';
+      statusText = 'Data não configurada';
+    }
+
+    return `
+      <tr class="billing-row billing-${statusClass}">
+        <td><strong>${store.name}</strong></td>
+        <td>${formatCurrency(monthlyFee)}</td>
+        <td>${formatDueDate(store.billingDueDate)}</td>
+        <td><span class="status-badge status-${statusClass}">${statusText}</span></td>
+        <td>${store.billingNotes || '-'}</td>
+      </tr>
+    `;
+  }).join('');
+
+  billingReport.innerHTML = `
+    <div style="overflow-x: auto;">
+      <table class="billing-table" style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="background: #f5f5f5; border-bottom: 2px solid #ddd;">
+            <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Loja</th>
+            <th style="padding: 12px; text-align: center; border: 1px solid #ddd;">Mensalidade</th>
+            <th style="padding: 12px; text-align: center; border: 1px solid #ddd;">Vencimento</th>
+            <th style="padding: 12px; text-align: center; border: 1px solid #ddd;">Status</th>
+            <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Observações</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${reportRows}
+          <tr style="background: #f9f9f9; border-top: 2px solid #ddd; font-weight: bold;">
+            <td style="padding: 12px; border: 1px solid #ddd;">TOTAL MENSAL</td>
+            <td style="padding: 12px; text-align: center; border: 1px solid #ddd;" colspan="3">${formatCurrency(totalMonthly)}</td>
+            <td style="padding: 12px; border: 1px solid #ddd;">↳ ${billingStores.length} loja${billingStores.length !== 1 ? 's' : ''}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <style>
+      .status-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: bold;
+      }
+      .status-badge.status-active { background: #d4edda; color: #155724; }
+      .status-badge.status-warning { background: #fff3cd; color: #856404; }
+      .status-badge.status-overdue { background: #f8d7da; color: #721c24; }
+      .status-badge.status-unknown { background: #e2e3e5; color: #383d41; }
+      .billing-table tbody tr:hover { background: #f9f9f9; }
+    </style>
+  `;
 }
 
 loginForm.addEventListener('submit', async (event) => {
@@ -323,6 +440,7 @@ loginForm.addEventListener('submit', async (event) => {
   showPanel(true);
   setMessage(loginMessage, 'Login master realizado com sucesso.');
   loadStores();
+  loadBillingReport();
 });
 
 storeForm.addEventListener('submit', async (event) => {
@@ -377,6 +495,7 @@ storeForm.addEventListener('submit', async (event) => {
   );
   storeForm.reset();
   loadStores();
+  loadBillingReport();
 });
 
 logoutBtn.addEventListener('click', async () => {
@@ -403,5 +522,8 @@ if (clearCacheBtn) {
   setupLoginPasswordToggle();
   const hasToken = !!getToken();
   showPanel(hasToken);
-  if (hasToken) loadStores();
+  if (hasToken) {
+    loadStores();
+    loadBillingReport();
+  }
 })();
