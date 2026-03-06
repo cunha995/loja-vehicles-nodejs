@@ -36,5 +36,24 @@ try {
   $resp | Select-Object id, state, created_at, deploy_id | Format-List
 } catch {
   Write-Host "Falha ao disparar deploy no Netlify: $($_.Exception.Message)" -ForegroundColor Red
+  if ($_.Exception.Response) {
+    try {
+      $statusCode = [int]$_.Exception.Response.StatusCode
+      Write-Host "Status HTTP: $statusCode" -ForegroundColor Yellow
+    } catch {
+    }
+    try {
+      $stream = $_.Exception.Response.GetResponseStream()
+      if ($stream) {
+        $reader = New-Object System.IO.StreamReader($stream)
+        $body = $reader.ReadToEnd()
+        if (-not [string]::IsNullOrWhiteSpace($body)) {
+          Write-Host "Resposta da API Netlify:" -ForegroundColor Yellow
+          Write-Host $body
+        }
+      }
+    } catch {
+    }
+  }
   exit 1
 }
