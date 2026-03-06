@@ -202,8 +202,9 @@ function normalizeWhatsappNumber(value) {
 
 function buildVehicleSellerInterestHtml(vehicle, listIndex) {
   const sellers = getInterestSellers().filter((seller) => {
-    const phone = normalizeWhatsappNumber(seller?.whatsapp);
-    return !!phone;
+    const whatsappPhone = normalizeWhatsappNumber(seller?.whatsapp);
+    const directPhone = normalizeWhatsappNumber(seller?.phone);
+    return !!(whatsappPhone || directPhone);
   });
 
   const fallbackMessage = encodeURIComponent(`Olá! Tenho interesse no veículo ${vehicle.model} ${vehicle.year}.`);
@@ -216,41 +217,25 @@ function buildVehicleSellerInterestHtml(vehicle, listIndex) {
   const safeVehicleId = String(vehicle.id || '').replace(/[^a-zA-Z0-9_-]/g, '');
   const hiddenListId = `interest-sellers-${safeVehicleId || `idx-${listIndex}`}`;
 
-  const renderSellerCard = (seller) => {
-    const phone = normalizeWhatsappNumber(seller.whatsapp);
-    const sellerName = String(seller.name || 'Vendedor').trim() || 'Vendedor';
-    const sellerRole = String(seller.role || '').trim();
-    const sellerPhone = String(seller.phone || '').trim();
-    const sellerBio = String(seller.bio || '').trim();
-    const sellerStatus = String(seller.status || '').trim();
-    const sellerImage = String(seller.image || '').trim();
-    const text = encodeURIComponent(`Olá ${sellerName}, tenho interesse no veículo ${vehicle.model} ${vehicle.year}.`);
-    const waLink = `https://wa.me/${phone}?text=${text}`;
-    
-    return `
-      <div class="seller-interest-card">
-        ${sellerImage ? `<img src="${sellerImage}" alt="${sellerName}" class="seller-interest-image">` : ''}
-        <div class="seller-interest-info">
-          <h4 class="seller-interest-name">${sellerName}</h4>
-          ${sellerRole ? `<p class="seller-interest-role">${sellerRole}</p>` : ''}
-          ${sellerStatus ? `<p class="seller-interest-status"><span class="status-dot"></span>${sellerStatus}</p>` : ''}
-          ${sellerBio ? `<p class="seller-interest-bio">${sellerBio}</p>` : ''}
-          <div class="seller-interest-contacts">
-            ${sellerPhone ? `<a href="tel:${sellerPhone}" class="contact-link phone-link">📞 ${sellerPhone}</a>` : ''}
-            <a href="${waLink}" target="_blank" rel="noopener noreferrer" class="contact-link whatsapp-link">💬 WhatsApp</a>
-          </div>
-        </div>
-      </div>
-    `;
+  const renderSellerNumber = (seller) => {
+    const whatsappPhone = normalizeWhatsappNumber(seller?.whatsapp);
+    const phoneLabel = String(seller?.phone || '').trim() || whatsappPhone;
+    const phoneValue = normalizeWhatsappNumber(phoneLabel) || whatsappPhone;
+    if (!phoneValue) return '';
+    return `<a href="tel:${phoneValue}" class="vehicle-interest-option">${phoneLabel}</a>`;
   };
 
-  const allCards = sellers.map(renderSellerCard).join('');
+  const allNumbers = sellers.map(renderSellerNumber).filter(Boolean).join('');
+
+  if (!allNumbers.trim()) {
+    return `<a href="${fallbackLink}" target="_blank" rel="noopener noreferrer" class="btn-card primary">Tenho interesse</a>`;
+  }
 
   return `
     <div class="vehicle-interest-dropdown">
       <button type="button" class="btn-card primary vehicle-interest-trigger" data-toggle-interest="${hiddenListId}" data-expand-label="Tenho interesse ▲" data-collapse-label="Tenho interesse ▼">Tenho interesse ▼</button>
-      <div id="${hiddenListId}" class="vehicle-interest-options vehicle-interest-seller-cards vehicle-interest-list-hidden" style="display:none;" data-open="false">
-        ${allCards}
+      <div id="${hiddenListId}" class="vehicle-interest-options vehicle-interest-list-hidden" style="display:none;" data-open="false">
+        ${allNumbers}
       </div>
     </div>
   `;
