@@ -215,6 +215,13 @@ function ensureStoreData(slug, settingsOverride = {}) {
   return files;
 }
 
+function removeStoreData(slug) {
+  const files = storeFiles(slug);
+  if (fs.existsSync(files.storeDir)) {
+    fs.rmSync(files.storeDir, { recursive: true, force: true });
+  }
+}
+
 function readStores() {
   return readCollection(STORES_FILE);
 }
@@ -1077,6 +1084,41 @@ app.post('/api/master/stores', requireMaster, (req, res) => {
     store,
     publicUrl: `/loja/${safeSlug}`,
     adminUrl: `/admin/${safeSlug}`,
+  });
+});
+
+app.delete('/api/master/stores/:slug', requireMaster, (req, res) => {
+  const safeSlug = slugifyStore(req.params.slug);
+  if (!safeSlug) return res.status(400).json({ error: 'Slug inválido' });
+
+  if (safeSlug === 'je-automoveis') {
+    return res.status(400).json({ error: 'A loja principal do sistema não pode ser apagada.' });
+  }
+
+  const stores = readStores();
+  const storeIndex = stores.findIndex((item) => item.slug === safeSlug);
+  if (storeIndex < 0) {
+    return res.status(404).json({ error: 'Loja não encontrada' });
+  }
+
+  const [removedStore] = stores.splice(storeIndex, 1);
+  writeStores(stores);
+
+  try {
+    removeStoreData(safeSlug);
+  } catch (_err) {
+  }
+
+  for (const [token, session] of adminSessions.entries()) {
+    if (session?.storeSlug === safeSlug) {
+      adminSessions.delete(token);
+    }
+  }
+
+  return res.json({
+    ok: true,
+    removedStore,
+    message: `Loja ${removedStore?.name || safeSlug} apagada com sucesso.`,
   });
 });
 

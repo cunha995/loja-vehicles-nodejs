@@ -62,6 +62,19 @@ function showPanel(isLoggedIn) {
   panelSection.classList.toggle('hidden', !isLoggedIn);
 }
 
+function setupLoginPasswordToggle() {
+  const toggle = document.getElementById('toggleAdminLoginPassword');
+  const passwordInput = loginForm?.elements?.password;
+  if (!toggle || !passwordInput) return;
+
+  const applyToggle = () => {
+    passwordInput.type = toggle.checked ? 'text' : 'password';
+  };
+
+  toggle.addEventListener('change', applyToggle);
+  applyToggle();
+}
+
 function applyStoreContext() {
   if (!STORE_SLUG) return;
 
@@ -797,6 +810,7 @@ cancelBannerEditBtn.addEventListener('click', () => {
 });
 
 (function init() {
+  setupLoginPasswordToggle();
   applyStoreContext();
   applyStorePasswordSectionVisibility();
   const hasToken = !!getToken();

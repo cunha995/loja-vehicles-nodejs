@@ -31,6 +31,19 @@ function showPanel(isLoggedIn) {
   panelSection.classList.toggle('hidden', !isLoggedIn);
 }
 
+function setupLoginPasswordToggle() {
+  const toggle = document.getElementById('toggleMasterLoginPassword');
+  const passwordInput = loginForm?.elements?.password;
+  if (!toggle || !passwordInput) return;
+
+  const applyToggle = () => {
+    passwordInput.type = toggle.checked ? 'text' : 'password';
+  };
+
+  toggle.addEventListener('change', applyToggle);
+  applyToggle();
+}
+
 function setMessage(target, message, isError = false) {
   target.textContent = message;
   target.style.color = isError ? '#b31818' : '#267529';
@@ -133,6 +146,7 @@ async function loadStores() {
         <div class="admin-item-actions">
           <button class="btn-edit" type="button" data-edit-billing="${store.slug}">Editar mensalidade</button>
           <button class="btn-edit" type="button" data-edit-public-base-url="${store.slug}">Editar domínio</button>
+          <button class="btn-delete" type="button" data-delete-store="${store.slug}">Apagar loja</button>
         </div>
       </article>
     `;
@@ -232,6 +246,48 @@ async function loadStores() {
       loadStores();
     });
   });
+
+  storeList.querySelectorAll('[data-delete-store]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const currentStore = stores.find((item) => item.slug === btn.dataset.deleteStore);
+      if (!currentStore) return;
+
+      const shouldDelete = window.confirm(`Deseja apagar a loja \"${currentStore.name}\"? Esta ação não pode ser desfeita.`);
+      if (!shouldDelete) return;
+
+      const confirmationSlug = window.prompt(
+        `Para confirmar, digite o slug da loja (${currentStore.slug}):`,
+        ''
+      );
+      if (confirmationSlug === null) return;
+
+      if (safeSlug(confirmationSlug) !== currentStore.slug) {
+        setMessage(storeMessage, 'Confirmação inválida. A loja não foi apagada.', true);
+        return;
+      }
+
+      const res = await fetch(`${API_BASE}/api/master/stores/${currentStore.slug}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
+
+      if (res.status === 401) {
+        setToken('');
+        showPanel(false);
+        setMessage(loginMessage, 'Sessão master expirada. Faça login novamente.', true);
+        return;
+      }
+
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage(storeMessage, data.error || 'Falha ao apagar loja.', true);
+        return;
+      }
+
+      setMessage(storeMessage, data.message || `Loja ${currentStore.name} apagada com sucesso.`);
+      loadStores();
+    });
+  });
 }
 
 loginForm.addEventListener('submit', async (event) => {
@@ -328,6 +384,7 @@ logoutBtn.addEventListener('click', async () => {
 });
 
 (function init() {
+  setupLoginPasswordToggle();
   const hasToken = !!getToken();
   showPanel(hasToken);
   if (hasToken) loadStores();
